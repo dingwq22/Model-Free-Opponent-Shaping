@@ -67,8 +67,10 @@ if __name__ == "__main__":
     for i_episode in range(1, max_episodes + 1):
         state = env.reset()
 
-        running_reward = torch.zeros(batch_size).cuda()
-        running_opp_reward = torch.zeros(batch_size).cuda()
+        # running_reward = torch.zeros(batch_size).cuda()
+        # running_opp_reward = torch.zeros(batch_size).cuda()
+        running_reward = torch.zeros(batch_size)
+        running_opp_reward = torch.zeros(batch_size)
 
         last_reward = 0
 
