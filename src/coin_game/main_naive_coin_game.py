@@ -2,7 +2,7 @@ import torch
 import os
 import json
 from coin_game_envs import CoinGameGPU
-from coin_game.coin_game_ppo_agent import PPO, Memory
+from coin_game_ppo_agent import PPO, Memory
 import argparse
 
 

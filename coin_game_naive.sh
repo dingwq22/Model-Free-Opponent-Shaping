@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Slurm sbatch options
-#SBATCH --job-name ipd_nl
+#SBATCH --job-name coin_game_naive
 #SBATCH -a 0
 ## SBATCH --gres=gpu:volta:1
 ## SBATCH -n 10 # use with MPI # max cores request limit: -c 48 * 24; -n 48 * 24
@@ -13,8 +13,6 @@ module load anaconda/2022b
 
 # Run the script
 
-python src/main_mfos_ppo.py \
---game=IPD \
---opponent=NL \
---exp-name=runs/mfos_ppo_ipd_nl
+python src/coin_game/main_naive_coin_game.py \
+--exp-name=runs/coin_naive
 

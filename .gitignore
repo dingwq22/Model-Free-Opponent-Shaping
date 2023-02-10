@@ -12,6 +12,7 @@ __pycache__/
 wandb*
 logs/
 runs/
+*.out
 
 # ignoring hanabi and starcraft related files after pushing them to the repo
 onpolicy/results
