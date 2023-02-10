@@ -1,19 +1,21 @@
 import torch
 import os
 import json
-from coin_game_envs import CoinGameGPU
+from coin_game_envs import CoinGameGPU, CoinGameGPU_Multi
 from coin_game_ppo_agent import PPO, Memory
 import argparse
 
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--exp-name", type=str, default="")
+parser.add_argument("--coin-game-setting", type=str, default="simple")
+parser.add_argument("--grid-size", type=int, default=3)
 args = parser.parse_args()
 
 if __name__ == "__main__":
     ############## Hyperparameters ##############
     batch_size = 512  # 8192 #, 32768
-    state_dim = [4, 3, 3]
+    state_dim = [4, args.grid_size, args.grid_size]
     action_dim = 4
     n_latent_var = 8  # number of variables in hidden layer
 
@@ -53,7 +55,10 @@ if __name__ == "__main__":
     rew_means = []
 
     # env
-    env = CoinGameGPU(batch_size=batch_size, max_steps=inner_ep_len - 1)
+    if args.coin_game == "mutli":
+        env = CoinGameGPU_Multi(batch_size=batch_size, max_steps=inner_ep_len - 1)
+    else:
+        env = CoinGameGPU(batch_size=batch_size, max_steps=inner_ep_len - 1, grid_size=args.grid_size)
 
     # training loop
     for i_episode in range(1, max_episodes + 1):

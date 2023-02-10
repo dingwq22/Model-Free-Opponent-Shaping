@@ -115,6 +115,116 @@ class CoinGameGPU:
 
         return observations, reward, done, (red_red_matches.sum(), red_blue_matches.sum(), blue_red_matches.sum(), blue_blue_matches.sum())
 
+class CoinGameGPU_Multi:
+    """
+    Vectorized Coin Game environment, with multiple agents (>2).
+    Note: slightly deviates from the Gym API.
+    """
+
+    NUM_AGENTS = 3  # TODO: pass it as an argument 
+    NUM_ACTIONS = 4
+    MOVES = torch.stack(
+        [
+            torch.LongTensor([0, 1]),
+            torch.LongTensor([0, -1]),
+            torch.LongTensor([1, 0]),
+            torch.LongTensor([-1, 0]),
+        ],
+        dim=0,
+    ).to(device)
+
+    def __init__(self, max_steps, batch_size, grid_size=3):
+        self.max_steps = max_steps
+        self.grid_size = grid_size
+        self.batch_size = batch_size
+        # The 4 channels stand for 2 players and 2 coin positions
+        self.ob_space_shape = [4, grid_size, grid_size]
+        self.NUM_STATES = np.prod(self.ob_space_shape)
+        self.available_actions = 4
+        self.step_count = None
+
+    def reset(self):
+        self.step_count = 0
+
+        red_pos_flat = torch.randint(self.grid_size * self.grid_size, size=(self.batch_size,)).to(device)
+        self.red_pos = torch.stack((red_pos_flat // self.grid_size, red_pos_flat % self.grid_size), dim=-1)
+
+        blue_pos_flat = torch.randint(self.grid_size * self.grid_size, size=(self.batch_size,)).to(device)
+        self.blue_pos = torch.stack((blue_pos_flat // self.grid_size, blue_pos_flat % self.grid_size), dim=-1)
+
+        red_coin_pos_flat = torch.randint(self.grid_size * self.grid_size, size=(self.batch_size,)).to(device)
+        blue_coin_pos_flat = torch.randint(self.grid_size * self.grid_size, size=(self.batch_size,)).to(device)
+
+        self.red_coin_pos = torch.stack((red_coin_pos_flat // self.grid_size, red_coin_pos_flat % self.grid_size), dim=-1)
+        self.blue_coin_pos = torch.stack((blue_coin_pos_flat // self.grid_size, blue_coin_pos_flat % self.grid_size), dim=-1)
+
+        state = self._generate_state()
+        observations = [state, state]
+        return observations
+
+    def _generate_coins(self):
+        mask_red = torch.logical_or(self._same_pos(self.red_coin_pos, self.blue_pos), self._same_pos(self.red_coin_pos, self.red_pos))
+        red_coin_pos_flat = torch.randint(self.grid_size * self.grid_size, size=(self.batch_size,)).to(device)[mask_red]
+        self.red_coin_pos[mask_red] = torch.stack((red_coin_pos_flat // self.grid_size, red_coin_pos_flat % self.grid_size), dim=-1)
+
+        mask_blue = torch.logical_or(self._same_pos(self.blue_coin_pos, self.blue_pos), self._same_pos(self.blue_coin_pos, self.red_pos))
+        blue_coin_pos_flat = torch.randint(self.grid_size * self.grid_size, size=(self.batch_size,)).to(device)[mask_blue]
+        self.blue_coin_pos[mask_blue] = torch.stack((blue_coin_pos_flat // self.grid_size, blue_coin_pos_flat % self.grid_size), dim=-1)
+
+    def _same_pos(self, x, y):
+        return torch.all(x == y, dim=-1)
+
+    def _generate_state(self):
+        red_pos_flat = self.red_pos[:, 0] * self.grid_size + self.red_pos[:, 1]
+        blue_pos_flat = self.blue_pos[:, 0] * self.grid_size + self.blue_pos[:, 1]
+
+        red_coin_pos_flat = self.red_coin_pos[:, 0] * self.grid_size + self.red_coin_pos[:, 1]
+        blue_coin_pos_flat = self.blue_coin_pos[:, 0] * self.grid_size + self.blue_coin_pos[:, 1]
+
+        state = torch.zeros((self.batch_size, 4, self.grid_size * self.grid_size)).to(device)
+
+        state[:, 0].scatter_(1, red_pos_flat[:, None], 1)
+        state[:, 1].scatter_(1, blue_pos_flat[:, None], 1)
+        state[:, 2].scatter_(1, red_coin_pos_flat[:, None], 1)
+        state[:, 3].scatter_(1, blue_coin_pos_flat[:, None], 1)
+
+        return state.view(self.batch_size, 4, self.grid_size, self.grid_size)
+
+    def step(self, actions):
+        ac0, ac1 = actions
+
+        self.step_count += 1
+
+        self.red_pos = (self.red_pos + self.MOVES[ac0]) % self.grid_size
+        self.blue_pos = (self.blue_pos + self.MOVES[ac1]) % self.grid_size
+
+        # Compute rewards
+        red_reward = torch.zeros(self.batch_size).to(device)
+        red_red_matches = self._same_pos(self.red_pos, self.red_coin_pos)
+        red_reward[red_red_matches] += 1
+        red_blue_matches = self._same_pos(self.red_pos, self.blue_coin_pos)
+        red_reward[red_blue_matches] += 1
+
+        blue_reward = torch.zeros(self.batch_size).to(device)
+        blue_red_matches = self._same_pos(self.blue_pos, self.red_coin_pos)
+        blue_reward[blue_red_matches] += 1
+        blue_blue_matches = self._same_pos(self.blue_pos, self.blue_coin_pos)
+        blue_reward[blue_blue_matches] += 1
+
+        red_reward[blue_red_matches] -= 2
+        blue_reward[red_blue_matches] -= 2
+
+        self._generate_coins()
+        reward = [red_reward.float(), blue_reward.float()]
+        state = self._generate_state()
+        observations = [state, state]
+        if self.step_count >= self.max_steps:
+            done = torch.ones(self.batch_size).to(device)
+        else:
+            done = torch.zeros(self.batch_size).to(device)
+
+        return observations, reward, done, (red_red_matches.sum(), red_blue_matches.sum(), blue_red_matches.sum(), blue_blue_matches.sum())
+
 
 class SymmetricCoinGame:
     def __init__(self, b, inner_ep_len, gamma_inner=0.96):
