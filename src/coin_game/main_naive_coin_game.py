@@ -10,6 +10,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--exp-name", type=str, default="")
 parser.add_argument("--coin-game-env", type=str, default="simple")
 parser.add_argument("--grid-size", type=int, default=3)
+parser.add_argument("--num-agents", type=int, default=2)
 args = parser.parse_args()
 
 if __name__ == "__main__":
@@ -55,10 +56,16 @@ if __name__ == "__main__":
     rew_means = []
 
     # env
-    if args.coin_game_env == "mutli":
-        env = CoinGameGPU_Multi(batch_size=batch_size, max_steps=inner_ep_len - 1)
-    else:
-        env = CoinGameGPU(batch_size=batch_size, max_steps=inner_ep_len - 1, grid_size=args.grid_size)
+    # if args.coin_game_env == "mutli":
+    #     env = CoinGameGPU_Multi(batch_size=batch_size, 
+    #                             max_steps=inner_ep_len - 1, 
+    #                             grid_size=args.grid_size,
+    #                             num_agents=args.num_agents)
+    # else:
+    env = CoinGameGPU(batch_size=batch_size, 
+                          max_steps=inner_ep_len - 1, 
+                          grid_size=args.grid_size,
+                          num_agents=args.num_agents)
 
     # training loop
     for i_episode in range(1, max_episodes + 1):
@@ -104,6 +111,6 @@ if __name__ == "__main__":
 
     ppo_0.save(os.path.join(name, f"{i_episode}_0.pth"))
     ppo_1.save(os.path.join(name, f"{i_episode}_1.pth"))
-    with open(os.path.join(name, f"out_{i_episode}.json"), "w") as f:
+    with open(os.path.join(name, f"out_{args.grid_size}_{args.num_agents}.json"), "w") as f:
         json.dump(rew_means, f)
     print(f"SAVING! {i_episode}")

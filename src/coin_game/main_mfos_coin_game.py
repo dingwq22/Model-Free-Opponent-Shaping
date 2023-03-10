@@ -10,12 +10,13 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--exp-name", type=str, default="")
 parser.add_argument("--coin-game-env", type=str, default="simple")
 parser.add_argument("--grid-size", type=int, default=3)
+parser.add_argument("--num-agents", type=int, default=2)
 args = parser.parse_args()
 
 if __name__ == "__main__":
     ############## Hyperparameters ##############
     batch_size = 512  # 8192 #, 32768
-    state_dim = [7, 3, 3]
+    state_dim = [7, args.grid_size, args.grid_size]
     action_dim = 4
     n_latent_var = 16  # number of variables in hidden layer
     max_episodes = 1000  # max training episodes
@@ -58,14 +59,13 @@ if __name__ == "__main__":
     rew_means = []
 
     # env
-    # TODO add "multi" game env 
-    env = CoinGamePPO(batch_size, inner_ep_len)
+    env = CoinGamePPO(batch_size, inner_ep_len, grid_size=args.grid_size, num_agents=args.num_agents)
 
     # training loop
     for i_episode in range(1, max_episodes + 1):
         memory.clear_memory()
         state = env.reset()
-        print("state shape", state.shape)
+        # print("state shape", state.shape)
         running_reward = 0
         opp_running_reward = 0
         p1_num_opp, p2_num_opp, p1_num_self, p2_num_self = 0, 0, 0, 0
@@ -105,6 +105,6 @@ if __name__ == "__main__":
 
         if i_episode % save_freq == 0:
             ppo.save(os.path.join(name, f"{i_episode}.pth"))
-            with open(os.path.join(name, f"out_{i_episode}.json"), "w") as f:
+            with open(os.path.join(name, f"out_{args.grid_size}_{args.num_agents}.json"), "w") as f:
                 json.dump(rew_means, f)
             print(f"SAVING! {i_episode}")
