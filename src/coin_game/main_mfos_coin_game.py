@@ -1,7 +1,7 @@
 import torch
 import os
 import json
-from coin_game_envs import CoinGamePPO
+from coin_game_envs import CoinGamePPO, CoinGamePPO_MultiPlayer
 from coin_game_mfos_agent import MemoryMFOS, PPOMFOS
 import argparse
 
@@ -11,6 +11,7 @@ parser.add_argument("--exp-name", type=str, default="")
 parser.add_argument("--coin-game-env", type=str, default="simple")
 parser.add_argument("--grid-size", type=int, default=3)
 parser.add_argument("--num-agents", type=int, default=2)
+parser.add_argument("--num-coins", type=int, default=2)
 args = parser.parse_args()
 
 if __name__ == "__main__":
@@ -59,7 +60,16 @@ if __name__ == "__main__":
     rew_means = []
 
     # env
-    env = CoinGamePPO(batch_size, inner_ep_len, grid_size=args.grid_size, num_agents=args.num_agents)
+    if args.coin_game_env == "multi":
+        env = CoinGamePPO_MultiPlayer(batch_size=batch_size, 
+                                inner_ep_len=inner_ep_len, 
+                                grid_size=args.grid_size,
+                                num_agents=args.num_agents,
+                                num_coins=args.num_coins)
+    else:
+        env = CoinGamePPO(batch_size=batch_size, 
+                          inner_ep_len=inner_ep_len, 
+                          grid_size=args.grid_size)
 
     # training loop
     for i_episode in range(1, max_episodes + 1):
@@ -105,6 +115,6 @@ if __name__ == "__main__":
 
         if i_episode % save_freq == 0:
             ppo.save(os.path.join(name, f"{i_episode}.pth"))
-            with open(os.path.join(name, f"out_{args.grid_size}_{args.num_agents}.json"), "w") as f:
+            with open(os.path.join(name, f"out_{args.coin_game_env}_{args.grid_size}_{args.num_agents}_{i_episode}.json"), "w") as f:
                 json.dump(rew_means, f)
             print(f"SAVING! {i_episode}")

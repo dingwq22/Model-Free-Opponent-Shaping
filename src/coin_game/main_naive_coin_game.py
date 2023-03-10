@@ -1,7 +1,7 @@
 import torch
 import os
 import json
-from coin_game_envs import CoinGameGPU, CoinGameGPU_Multi
+from coin_game_envs import CoinGameGPU, CoinGameGPU_MultiPlayer
 from coin_game_ppo_agent import PPO, Memory
 import argparse
 
@@ -11,6 +11,7 @@ parser.add_argument("--exp-name", type=str, default="")
 parser.add_argument("--coin-game-env", type=str, default="simple")
 parser.add_argument("--grid-size", type=int, default=3)
 parser.add_argument("--num-agents", type=int, default=2)
+parser.add_argument("--num-coins", type=int, default=1) # number of coins for each color 
 args = parser.parse_args()
 
 if __name__ == "__main__":
@@ -56,16 +57,16 @@ if __name__ == "__main__":
     rew_means = []
 
     # env
-    # if args.coin_game_env == "mutli":
-    #     env = CoinGameGPU_Multi(batch_size=batch_size, 
-    #                             max_steps=inner_ep_len - 1, 
-    #                             grid_size=args.grid_size,
-    #                             num_agents=args.num_agents)
-    # else:
-    env = CoinGameGPU(batch_size=batch_size, 
+    if args.coin_game_env == "multi":
+        env = CoinGameGPU_MultiPlayer(batch_size=batch_size, 
+                                max_steps=inner_ep_len - 1, 
+                                grid_size=args.grid_size,
+                                num_agents=args.num_agents,
+                                num_coins=args.num_coins)
+    else:
+        env = CoinGameGPU(batch_size=batch_size, 
                           max_steps=inner_ep_len - 1, 
-                          grid_size=args.grid_size,
-                          num_agents=args.num_agents)
+                          grid_size=args.grid_size)
 
     # training loop
     for i_episode in range(1, max_episodes + 1):
@@ -111,6 +112,6 @@ if __name__ == "__main__":
 
     ppo_0.save(os.path.join(name, f"{i_episode}_0.pth"))
     ppo_1.save(os.path.join(name, f"{i_episode}_1.pth"))
-    with open(os.path.join(name, f"out_{args.grid_size}_{args.num_agents}.json"), "w") as f:
+    with open(os.path.join(name, f"out_{args.coin_game_env}_{args.grid_size}_{args.num_agents}.json"), "w") as f:
         json.dump(rew_means, f)
     print(f"SAVING! {i_episode}")

@@ -11,6 +11,7 @@ class CoinGameGPU:
     Note: slightly deviates from the Gym API.
     """
 
+    NUM_AGENTS = 2
     NUM_ACTIONS = 4
     MOVES = torch.stack(
         [
@@ -22,15 +23,12 @@ class CoinGameGPU:
         dim=0,
     ).to(device)
 
-    def __init__(self, max_steps, batch_size, grid_size, num_agents):
+    def __init__(self, max_steps, batch_size, grid_size):
         self.max_steps = max_steps
         self.grid_size = grid_size
         self.batch_size = batch_size
-        self.num_agents = num_agents
-        # # The 4 channels stand for 2 players and 2 coin positions
-        # self.ob_space_shape = [4, grid_size, grid_size]
-        # assume n players and n coin positions, the first channel is n*n
-        self.ob_space_shape = [num_agents * num_agents, grid_size, grid_size]
+        # The 4 channels stand for 2 players and 2 coin positions
+        self.ob_space_shape = [4, grid_size, grid_size]
         self.NUM_STATES = np.prod(self.ob_space_shape)
         self.available_actions = 4
         self.step_count = None
@@ -117,9 +115,10 @@ class CoinGameGPU:
 
         return observations, reward, done, (red_red_matches.sum(), red_blue_matches.sum(), blue_red_matches.sum(), blue_blue_matches.sum())
 
-class CoinGameGPU_Multi:
+class CoinGameGPU_MultiPlayer:
     """
-    Vectorized Coin Game environment, with multiple agents (>2).
+    Vectorized Coin Game environment.
+    Multiple players controlling a red and a blue coin.
     Note: slightly deviates from the Gym API.
     """
 
@@ -134,12 +133,13 @@ class CoinGameGPU_Multi:
         dim=0,
     ).to(device)
 
-    def __init__(self, max_steps, batch_size, grid_size, num_agents):
+    def __init__(self, max_steps, batch_size, grid_size, num_agents, num_coins):
         self.max_steps = max_steps
         self.grid_size = grid_size
         self.batch_size = batch_size
         self.num_agents = num_agents
-        self.ob_space_shape = [num_agents * num_agents, grid_size, grid_size]
+        self.num_coins = num_coins
+        self.ob_space_shape = [num_agents * num_coins, grid_size, grid_size]
         self.NUM_STATES = np.prod(self.ob_space_shape)
         self.available_actions = 4
         self.step_count = None
@@ -149,6 +149,8 @@ class CoinGameGPU_Multi:
 
         red_pos_flat = torch.randint(self.grid_size * self.grid_size, size=(self.batch_size,)).to(device)
         self.red_pos = torch.stack((red_pos_flat // self.grid_size, red_pos_flat % self.grid_size), dim=-1)
+        print("shape", self.red_pos.shape)
+        # self.red_pos.shape = [512, 2]
 
         blue_pos_flat = torch.randint(self.grid_size * self.grid_size, size=(self.batch_size,)).to(device)
         self.blue_pos = torch.stack((blue_pos_flat // self.grid_size, blue_pos_flat % self.grid_size), dim=-1)
@@ -158,8 +160,10 @@ class CoinGameGPU_Multi:
 
         self.red_coin_pos = torch.stack((red_coin_pos_flat // self.grid_size, red_coin_pos_flat % self.grid_size), dim=-1)
         self.blue_coin_pos = torch.stack((blue_coin_pos_flat // self.grid_size, blue_coin_pos_flat % self.grid_size), dim=-1)
+        # self.red_coin_pos.shape = [512, 2]
 
         state = self._generate_state()
+        # state.shape = [512, 4, 3, 3]
         observations = [state, state]
         return observations
 
@@ -188,6 +192,7 @@ class CoinGameGPU_Multi:
         state[:, 1].scatter_(1, blue_pos_flat[:, None], 1)
         state[:, 2].scatter_(1, red_coin_pos_flat[:, None], 1)
         state[:, 3].scatter_(1, blue_coin_pos_flat[:, None], 1)
+        # state[:, 0].shape = [512, 9]
 
         return state.view(self.batch_size, 4, self.grid_size, self.grid_size)
 
@@ -267,8 +272,83 @@ class SymmetricCoinGame:
 
 
 class CoinGamePPO:
-    def __init__(self, b, inner_ep_len, grid_size=3, num_agents=2, gamma_inner=0.96, first=False):
-        self.env = CoinGameGPU(max_steps=inner_ep_len - 1, batch_size=b, grid_size=grid_size, num_agents=num_agents)
+    def __init__(self, b, inner_ep_len, grid_size=3, gamma_inner=0.96, first=False):
+        self.env = CoinGameGPU(max_steps=inner_ep_len - 1, batch_size=b, grid_size=grid_size)
+        self.grid_size = grid_size
+        self.inner_ep_len = inner_ep_len
+        self.b = b
+        self.first = first
+
+    def reset(self):
+        """
+        Hyperparams for inner PPO
+        """
+        input_shape = [4, self.grid_size, self.grid_size]
+        action_dim = 4
+        n_latent_var = 8
+        lr = 0.005
+
+        betas = (0.9, 0.999)
+        gamma = 0.96  # discount factor
+        tau = 0.3  # GAE
+        K_epochs = 80  # update policy for K epochs
+        eps_clip = 0.2  # clip parameter for PPO
+
+        self.inner_agent = PPO(input_shape, action_dim, n_latent_var, lr, betas, gamma, K_epochs, eps_clip, tau)  # MAYBE DONT LET INNER AGENT BE RNN
+        self.inner_memory = Memory()
+
+        self.env_states = self.env.reset()
+        self.rewards_inner = torch.zeros(self.b).to(device)
+        self.rewards_outer = torch.zeros(self.b).to(device)
+        self.dones_inner = torch.zeros(self.b).to(device)
+        self.dones_outer = torch.zeros(self.b).to(device)
+        self.t = 0
+
+        return self._prep_state()
+
+    def _prep_state(self):
+        rewards_inner_tiled = torch.tile(self.rewards_inner[None, None].T, [1, 3, 3])[:, None]
+        rewards_outer_tiled = torch.tile(self.rewards_outer[None, None].T, [1, 3, 3])[:, None]
+        dones_inner_tiled = torch.tile(self.dones_inner[None, None].T, [1, 3, 3])[:, None]
+
+        # print("env state shape", self.env_states[0].shape)
+        return torch.cat([self.env_states[0], rewards_inner_tiled, rewards_outer_tiled, dones_inner_tiled], axis=1)
+
+    def step(self, actions):
+        self.t += 1
+        if torch.any(self.dones_inner):
+            info = None
+            assert self.t % self.inner_ep_len == 0
+            self.env_states = self.env.reset()
+            self.rewards_inner = torch.zeros(self.b).to(device)
+            self.rewards_outer = torch.zeros(self.b).to(device)
+            self.dones_inner = torch.zeros(self.b).to(device)
+            self.dones_outer = torch.zeros(self.b).to(device)
+            self.inner_agent.update(self.inner_memory)
+            self.inner_memory.clear_memory()
+        else:
+            with torch.no_grad():
+                self.inner_actions = self.inner_agent.policy_old.act(self.env_states[1], self.inner_memory)
+
+                if self.first:
+                    self.env_states, rewards, self.dones_inner, info = self.env.step([actions, self.inner_actions])
+                    self.rewards_outer, self.rewards_inner = rewards
+                else:
+                    self.env_states, rewards, self.dones_inner, info = self.env.step([self.inner_actions, actions])
+                    self.rewards_inner, self.rewards_outer = rewards
+
+                self.inner_memory.rewards.append(self.rewards_inner)
+
+        return self._prep_state(), self.rewards_outer, self.dones_outer, self.rewards_inner, info
+
+
+class CoinGamePPO_MultiPlayer():
+    def __init__(self, b, inner_ep_len, grid_size, num_agents, num_coins, gamma_inner=0.96, first=False):
+        self.env = CoinGameGPU_MultiPlayer(max_steps=inner_ep_len - 1, batch_size=b, 
+                                           grid_size=grid_size, 
+                                           num_agents=num_agents,
+                                           num_coins=num_coins
+                                        )
         self.grid_size = grid_size
         self.num_agents = num_agents
         self.inner_ep_len = inner_ep_len
