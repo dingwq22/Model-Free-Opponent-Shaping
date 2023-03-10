@@ -8,6 +8,8 @@ import argparse
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--exp-name", type=str, default="")
+parser.add_argument("--coin-game-env", type=str, default="simple")
+parser.add_argument("--grid-size", type=int, default=3)
 args = parser.parse_args()
 
 if __name__ == "__main__":
@@ -56,12 +58,14 @@ if __name__ == "__main__":
     rew_means = []
 
     # env
+    # TODO add "multi" game env 
     env = CoinGamePPO(batch_size, inner_ep_len)
 
     # training loop
     for i_episode in range(1, max_episodes + 1):
         memory.clear_memory()
         state = env.reset()
+        print("state shape", state.shape)
         running_reward = 0
         opp_running_reward = 0
         p1_num_opp, p2_num_opp, p1_num_self, p2_num_self = 0, 0, 0, 0

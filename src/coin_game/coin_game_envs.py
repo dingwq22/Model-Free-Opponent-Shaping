@@ -304,6 +304,7 @@ class CoinGamePPO:
         rewards_outer_tiled = torch.tile(self.rewards_outer[None, None].T, [1, 3, 3])[:, None]
         dones_inner_tiled = torch.tile(self.dones_inner[None, None].T, [1, 3, 3])[:, None]
 
+        print("env state shape", self.env_states[0].shape)
         return torch.cat([self.env_states[0], rewards_inner_tiled, rewards_outer_tiled, dones_inner_tiled], axis=1)
 
     def step(self, actions):

@@ -8,7 +8,7 @@ import argparse
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--exp-name", type=str, default="")
-parser.add_argument("--coin-game-setting", type=str, default="simple")
+parser.add_argument("--coin-game-env", type=str, default="simple")
 parser.add_argument("--grid-size", type=int, default=3)
 args = parser.parse_args()
 
@@ -55,7 +55,7 @@ if __name__ == "__main__":
     rew_means = []
 
     # env
-    if args.coin_game == "mutli":
+    if args.coin_game_env == "mutli":
         env = CoinGameGPU_Multi(batch_size=batch_size, max_steps=inner_ep_len - 1)
     else:
         env = CoinGameGPU(batch_size=batch_size, max_steps=inner_ep_len - 1, grid_size=args.grid_size)
