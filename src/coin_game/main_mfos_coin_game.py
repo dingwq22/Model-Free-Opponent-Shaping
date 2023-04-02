@@ -113,8 +113,8 @@ if __name__ == "__main__":
         )
         print(rew_means[-1])
 
-        if i_episode % save_freq == 0:
-            ppo.save(os.path.join(name, f"{i_episode}.pth"))
-            with open(os.path.join(name, f"out_{args.coin_game_env}_{args.grid_size}_{args.num_agents}_{i_episode}.json"), "w") as f:
-                json.dump(rew_means, f)
-            print(f"SAVING! {i_episode}")
+        # if i_episode % save_freq == 0:
+        #     ppo.save(os.path.join(name, f"{i_episode}.pth"))
+        #     with open(os.path.join(name, f"out_{args.coin_game_env}_{args.grid_size}_{args.num_agents}_{i_episode}.json"), "w") as f:
+        #         json.dump(rew_means, f)
+        #     print(f"SAVING! {i_episode}")

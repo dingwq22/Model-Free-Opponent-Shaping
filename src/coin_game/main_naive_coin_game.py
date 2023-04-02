@@ -197,8 +197,8 @@ if __name__ == "__main__":
         )
         print(rew_means[-1])
 
-    ppo_0.save(os.path.join(name, f"{i_episode}_0.pth"))
-    ppo_1.save(os.path.join(name, f"{i_episode}_1.pth"))
-    with open(os.path.join(name, f"out_{args.env_name}_{args.grid_size}_{args.num_agents}.json"), "w") as f:
-        json.dump(rew_means, f)
-    print(f"SAVING! {i_episode}")
+    # ppo_0.save(os.path.join(name, f"{i_episode}_0.pth"))
+    # ppo_1.save(os.path.join(name, f"{i_episode}_1.pth"))
+    # with open(os.path.join(name, f"out_{args.env_name}_{args.grid_size}_{args.num_agents}.json"), "w") as f:
+    #     json.dump(rew_means, f)
+    # print(f"SAVING! {i_episode}")
