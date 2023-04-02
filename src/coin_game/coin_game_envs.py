@@ -150,7 +150,7 @@ class CoinGameGPU_MultiPlayer:
         red_pos_flat = torch.randint(self.grid_size * self.grid_size, size=(self.batch_size,)).to(device)
         self.red_pos = torch.stack((red_pos_flat // self.grid_size, red_pos_flat % self.grid_size), dim=-1)
         print("shape", self.red_pos.shape)
-        # self.red_pos.shape = [512, 2]
+        # self.red_pos.shape = [512, 2n, 2]
 
         blue_pos_flat = torch.randint(self.grid_size * self.grid_size, size=(self.batch_size,)).to(device)
         self.blue_pos = torch.stack((blue_pos_flat // self.grid_size, blue_pos_flat % self.grid_size), dim=-1)
@@ -163,7 +163,7 @@ class CoinGameGPU_MultiPlayer:
         # self.red_coin_pos.shape = [512, 2]
 
         state = self._generate_state()
-        # state.shape = [512, 4, 3, 3]
+        # state.shape = [512, 2n+2, grid_size, grid_size]
         observations = [state, state]
         return observations
 
@@ -193,6 +193,7 @@ class CoinGameGPU_MultiPlayer:
         state[:, 2].scatter_(1, red_coin_pos_flat[:, None], 1)
         state[:, 3].scatter_(1, blue_coin_pos_flat[:, None], 1)
         # state[:, 0].shape = [512, 9]
+
 
         return state.view(self.batch_size, 4, self.grid_size, self.grid_size)
 

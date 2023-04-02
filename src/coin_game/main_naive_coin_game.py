@@ -1,17 +1,36 @@
+#!/usr/bin/env python
 import torch
-import os
 import json
 from coin_game_envs import CoinGameGPU, CoinGameGPU_MultiPlayer
 from coin_game_ppo_agent import PPO, Memory
 import argparse
+import wandb
+import socket 
+import setproctitle
+import numpy as np
+from pathlib import Path
+
+import os,sys
+sys.path.append(os.path.abspath(os.getcwd()))
+from utils.utils import print_args, print_box, connected_to_internet
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--exp-name", type=str, default="")
-parser.add_argument("--coin-game-env", type=str, default="simple")
-parser.add_argument("--grid-size", type=int, default=3)
-parser.add_argument("--num-agents", type=int, default=2)
-parser.add_argument("--num-coins", type=int, default=1) # number of coins for each color 
+parser.add_argument("--project_name", type=str, default="test")
+parser.add_argument("--seed", type=int, default=1)
+parser.add_argument("--exp_name", type=str, default="")
+parser.add_argument("--env_name", type=str, default="simple")
+parser.add_argument("--grid_size", type=int, default=3)
+parser.add_argument("--num_agents", type=int, default=2,
+                    help="number of agents for each color")
+parser.add_argument("--num_coins", type=int, default=2,
+                    help="number of coins for each color") 
+parser.add_argument("--user_name", type=str, default='mfos',
+                    help="[for wandb usage], to specify user's name for "
+                        "simply collecting training data.")
+parser.add_argument("--use_wandb", action='store_false', default=True, 
+                    help="[for wandb usage], by default True, will log date "
+                        "to wandb server. or else will use tensorboard to log data.")
 args = parser.parse_args()
 
 if __name__ == "__main__":
@@ -36,11 +55,79 @@ if __name__ == "__main__":
     max_episodes = num_steps // inner_ep_len  # max training episodes
     name = args.exp_name
 
-    print(f"RUNNING NAME: {name}")
-    if not os.path.isdir(name):
-        os.mkdir(name)
-        with open(os.path.join(name, "commandline_args.txt"), "w") as f:
-            json.dump(args.__dict__, f, indent=2)
+    # print(f"RUNNING NAME: {name}")
+    # if not os.path.isdir(name):
+    #     os.mkdir(name)
+    #     with open(os.path.join(name, "commandline_args.txt"), "w") as f:
+    #         json.dump(args.__dict__, f, indent=2)
+
+    ##################
+    # run dir
+    run_dir = Path(os.path.split(os.path.dirname(os.path.abspath(__file__)))[0] + 
+        "/results") / args.env_name / args.project_name / args.exp_name
+    if not run_dir.exists():
+        os.makedirs(str(run_dir))
+
+    # wandb
+    if args.use_wandb:
+
+        # for supercloud when no internet_connection
+        if not connected_to_internet():
+            import json
+            # save a json file with your wandb api key in your 
+            # home folder as {'my_wandb_api_key': 'INSERT API HERE'}
+            # NOTE this is only for running on systems without internet access
+            # have to run `wandb sync wandb/run_name` to sync logs to wandboard
+            with open(os.path.expanduser('~')+'/keys.json') as json_file: 
+                key = json.load(json_file)
+                my_wandb_api_key = key['my_wandb_api_key'] # NOTE change here as well
+            os.environ["WANDB_API_KEY"] = my_wandb_api_key
+            os.environ["WANDB_MODE"] = "dryrun"
+            os.environ['WANDB_SAVE_CODE'] = "true"
+
+        print_box('Creating wandboard...')
+        run = wandb.init(config=args,
+                        project=args.project_name,
+                        entity=args.user_name,
+                        notes=socket.gethostname(),
+                        name=str(args.env_name) + "_" +
+                        str(args.exp_name) +
+                        "_seed" + str(args.seed),
+                        # group=all_args.scenario_name,
+                        dir=str(run_dir),
+                        # job_type="training",
+                        reinit=True)
+    else:
+        if not run_dir.exists():
+            curr_run = 'run1'
+        else:
+            exst_run_nums = [int(str(folder.name).split('run')[1]) for 
+                            folder in run_dir.iterdir() if 
+                            str(folder.name).startswith('run')]
+            if len(exst_run_nums) == 0:
+                curr_run = 'run1'
+            else:
+                curr_run = 'run%i' % (max(exst_run_nums) + 1)
+        run_dir = run_dir / curr_run
+        if not run_dir.exists():
+            os.makedirs(str(run_dir))
+
+    setproctitle.setproctitle(str(args.env_name) + "-" + \
+                            str(args.exp_name) + "@" + \
+                            str(args.user_name))
+
+    # seed
+    torch.manual_seed(args.seed)
+    torch.cuda.manual_seed_all(args.seed)
+    np.random.seed(args.seed)
+
+    config = {
+        "all_args": args,
+        "num_agents": args.num_agents,
+        "run_dir": run_dir
+    }
+
+
     #############################################
 
     memory_0 = Memory()
@@ -57,7 +144,7 @@ if __name__ == "__main__":
     rew_means = []
 
     # env
-    if args.coin_game_env == "multi":
+    if args.env_name == "multi":
         env = CoinGameGPU_MultiPlayer(batch_size=batch_size, 
                                 max_steps=inner_ep_len - 1, 
                                 grid_size=args.grid_size,
@@ -112,6 +199,6 @@ if __name__ == "__main__":
 
     ppo_0.save(os.path.join(name, f"{i_episode}_0.pth"))
     ppo_1.save(os.path.join(name, f"{i_episode}_1.pth"))
-    with open(os.path.join(name, f"out_{args.coin_game_env}_{args.grid_size}_{args.num_agents}.json"), "w") as f:
+    with open(os.path.join(name, f"out_{args.env_name}_{args.grid_size}_{args.num_agents}.json"), "w") as f:
         json.dump(rew_means, f)
     print(f"SAVING! {i_episode}")
