@@ -151,6 +151,7 @@ if __name__ == "__main__":
                                 num_agents=args.num_agents,
                                 num_coins=args.num_coins)
     else:
+        # num_agents = 2, num_coins = 2
         env = CoinGameGPU(batch_size=batch_size, 
                           max_steps=inner_ep_len - 1, 
                           grid_size=args.grid_size)
@@ -196,6 +197,11 @@ if __name__ == "__main__":
             }
         )
         print(rew_means[-1])
+
+        # log training info 
+        for k, v in rew_means[-1].items():
+            if args.use_wandb:
+                wandb.log({k: v}, step=i_episode)
 
     # ppo_0.save(os.path.join(name, f"{i_episode}_0.pth"))
     # ppo_1.save(os.path.join(name, f"{i_episode}_1.pth"))

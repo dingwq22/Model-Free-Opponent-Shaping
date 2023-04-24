@@ -273,11 +273,11 @@ class SymmetricCoinGame:
 
 
 class CoinGamePPO:
-    def __init__(self, b, inner_ep_len, grid_size=3, gamma_inner=0.96, first=False):
-        self.env = CoinGameGPU(max_steps=inner_ep_len - 1, batch_size=b, grid_size=grid_size)
+    def __init__(self, batch_size, inner_ep_len, grid_size=3, gamma_inner=0.96, first=False):
+        self.env = CoinGameGPU(max_steps=inner_ep_len - 1, batch_size=batch_size, grid_size=grid_size)
         self.grid_size = grid_size
         self.inner_ep_len = inner_ep_len
-        self.b = b
+        self.b = batch_size
         self.first = first
 
     def reset(self):
