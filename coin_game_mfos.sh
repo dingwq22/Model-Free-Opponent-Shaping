@@ -27,7 +27,7 @@ do
 echo "seed: ${seed}"
 python src/coin_game/main_mfos_coin_game.py \
 --project_name "coin_mfos_${num_agents}" \
---exp_name "naive_${grid_size[$SLURM_ARRAY_TASK_ID]_${num_agents[$SLURM_ARRAY_TASK_ID]}_${num_coins[$SLURM_ARRAY_TASK_ID]}" \
+--exp_name "naive_${grid_size[$SLURM_ARRAY_TASK_ID]}_${num_agents[$SLURM_ARRAY_TASK_ID]}_${num_coins[$SLURM_ARRAY_TASK_ID]}" \
 --seed ${seed} \
 --env_name "multi" \
 --grid_size ${grid_size[$SLURM_ARRAY_TASK_ID]} \

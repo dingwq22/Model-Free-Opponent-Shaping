@@ -21,13 +21,14 @@ grid_size=(3 4 5 10)
 num_agents=2
 num_coins=2
 
+
 # Run the script
 for seed in `seq ${seed_max}`;
 do
 echo "seed: ${seed}"
 python src/coin_game/main_mfos_coin_game.py \
 --project_name "coin_mfos_${num_agents}" \
---exp_name "mfos_${grid_size[$SLURM_ARRAY_TASK_ID]_${num_agents}_${num_coins}" \
+--exp_name "mfos_${grid_size[$SLURM_ARRAY_TASK_ID]}_${num_agents}_${num_coins}" \
 --seed ${seed} \
 --env_name "multi" \
 --grid_size ${grid_size[$SLURM_ARRAY_TASK_ID]} \
@@ -36,3 +37,4 @@ python src/coin_game/main_mfos_coin_game.py \
 --user_name "mfos" \
 &> $logs_folder/out_${grid_size[$SLURM_ARRAY_TASK_ID]}_${num_agents}_${num_coins}_${seed}
 done
+
