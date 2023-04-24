@@ -18,9 +18,9 @@ from utils.utils import print_args, print_box, connected_to_internet
 parser = argparse.ArgumentParser()
 parser.add_argument("--project_name", type=str, default="test")
 parser.add_argument("--seed", type=int, default=1)
-parser.add_argument("--exp-name", type=str, default="")
+parser.add_argument("--exp_name", type=str, default="")
 parser.add_argument("--env_name", type=str, default="simple")
-parser.add_argument("--grid-size", type=int, default=3)
+parser.add_argument("--grid_size", type=int, default=3)
 parser.add_argument("--num_agents", type=int, default=2,
                     help="number of agents for each color")
 parser.add_argument("--num_coins", type=int, default=2,
