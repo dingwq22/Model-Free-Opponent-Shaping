@@ -147,20 +147,28 @@ class CoinGameGPU_MultiPlayer:
     def reset(self):
         self.step_count = 0
 
-        red_pos_flat = torch.randint(self.grid_size * self.grid_size, size=(self.batch_size,)).to(device)
+        red_pos_flat = torch.randint(self.grid_size * self.grid_size, size=(self.batch_size * self.num_agents,)).to(device)
+        red_pos_flat = red_pos_flat.reshape(self.batch_size, self.num_agents)
         self.red_pos = torch.stack((red_pos_flat // self.grid_size, red_pos_flat % self.grid_size), dim=-1)
-        # print("shape", self.red_pos.shape)
-        # self.red_pos.shape = [512, 2n, 2]
+        # self.red_pos.shape = [512, n, 2]
 
-        blue_pos_flat = torch.randint(self.grid_size * self.grid_size, size=(self.batch_size,)).to(device)
+        blue_pos_flat = torch.randint(self.grid_size * self.grid_size, size=(self.batch_size * self.num_agents,)).to(device)
+        blue_pos_flat = blue_pos_flat.reshape(self.batch_size, self.num_agents)
         self.blue_pos = torch.stack((blue_pos_flat // self.grid_size, blue_pos_flat % self.grid_size), dim=-1)
+        # self.blue_pos.shape = [512, n, 2]
 
-        red_coin_pos_flat = torch.randint(self.grid_size * self.grid_size, size=(self.batch_size,)).to(device)
+        # assume 2 coins 
+        red_coin_pos_flat = torch.randint(self.grid_size * self.grid_size, size=(self.batch_size,)).to(device) # (512)
+        red_coin_pos_flat = red_coin_pos_flat.reshape(self.batch_size, 1).expand(self.batch_size, self.num_agents) # (512, n)
         blue_coin_pos_flat = torch.randint(self.grid_size * self.grid_size, size=(self.batch_size,)).to(device)
+        blue_coin_pos_flat = blue_coin_pos_flat.reshape(self.batch_size, 1).expand(self.batch_size, self.num_agents)
 
         self.red_coin_pos = torch.stack((red_coin_pos_flat // self.grid_size, red_coin_pos_flat % self.grid_size), dim=-1)
         self.blue_coin_pos = torch.stack((blue_coin_pos_flat // self.grid_size, blue_coin_pos_flat % self.grid_size), dim=-1)
-        # self.red_coin_pos.shape = [512, 2]
+        # self.red_coin_pos.shape = [512, n, 2]
+        self.red_coin_pos = self.red_coin_pos.reshape(self.batch_size * self.num_agents, -1)
+        self.blue_coin_pos = self.blue_coin_pos.reshape(self.batch_size * self.num_agents, -1) # (512 * n)
+
 
         state = self._generate_state()
         # state.shape = [512, 2n+2, grid_size, grid_size]
@@ -169,50 +177,52 @@ class CoinGameGPU_MultiPlayer:
 
     def _generate_coins(self):
         mask_red = torch.logical_or(self._same_pos(self.red_coin_pos, self.blue_pos), self._same_pos(self.red_coin_pos, self.red_pos))
-        red_coin_pos_flat = torch.randint(self.grid_size * self.grid_size, size=(self.batch_size,)).to(device)[mask_red]
+        red_coin_pos_flat = torch.randint(self.grid_size * self.grid_size, size=(self.batch_size * self.num_agents,)).to(device)[mask_red]
         self.red_coin_pos[mask_red] = torch.stack((red_coin_pos_flat // self.grid_size, red_coin_pos_flat % self.grid_size), dim=-1)
 
         mask_blue = torch.logical_or(self._same_pos(self.blue_coin_pos, self.blue_pos), self._same_pos(self.blue_coin_pos, self.red_pos))
-        blue_coin_pos_flat = torch.randint(self.grid_size * self.grid_size, size=(self.batch_size,)).to(device)[mask_blue]
+        blue_coin_pos_flat = torch.randint(self.grid_size * self.grid_size, size=(self.batch_size * self.num_agents,)).to(device)[mask_blue]
         self.blue_coin_pos[mask_blue] = torch.stack((blue_coin_pos_flat // self.grid_size, blue_coin_pos_flat % self.grid_size), dim=-1)
 
     def _same_pos(self, x, y):
         return torch.all(x == y, dim=-1)
 
     def _generate_state(self):
-        red_pos_flat = self.red_pos[:, 0] * self.grid_size + self.red_pos[:, 1]
-        blue_pos_flat = self.blue_pos[:, 0] * self.grid_size + self.blue_pos[:, 1]
+        red_pos_flat = self.red_pos.reshape(self.batch_size * self.num_agents, -1)[:, 0] * self.grid_size + self.red_pos.reshape(self.batch_size * self.num_agents, -1)[:, 1]  # (512 * n)
+        blue_pos_flat = self.blue_pos.reshape(self.batch_size * self.num_agents, -1)[:, 0] * self.grid_size + self.blue_pos.reshape(self.batch_size * self.num_agents, -1)[:, 1] # (512 * n)
 
-        red_coin_pos_flat = self.red_coin_pos[:, 0] * self.grid_size + self.red_coin_pos[:, 1]
+        red_coin_pos_flat = self.red_coin_pos[:, 0] * self.grid_size + self.red_coin_pos[:, 1] # (512 * n)
         blue_coin_pos_flat = self.blue_coin_pos[:, 0] * self.grid_size + self.blue_coin_pos[:, 1]
 
-        state = torch.zeros((self.batch_size, 4, self.grid_size * self.grid_size)).to(device)
+        state = torch.zeros((self.batch_size * self.num_agents, 4, self.grid_size * self.grid_size)).to(device)
 
-        state[:, 0].scatter_(1, red_pos_flat[:, None], 1)
+        # one-hot
+        state[:, 0].scatter_(1, red_pos_flat[:, None], 1) # (512 * n, grid_size * grid_size)
         state[:, 1].scatter_(1, blue_pos_flat[:, None], 1)
-        state[:, 2].scatter_(1, red_coin_pos_flat[:, None], 1)
+        state[:, 2].scatter_(1, red_coin_pos_flat[:, None], 1) # (512 * n, grid_size * grid_size)
         state[:, 3].scatter_(1, blue_coin_pos_flat[:, None], 1)
-        # state[:, 0].shape = [512, 9]
 
-
-        return state.view(self.batch_size, 4, self.grid_size, self.grid_size)
+        return state.view(self.batch_size * self.num_agents, 4, self.grid_size, self.grid_size)
 
     def step(self, actions):
         ac0, ac1 = actions
 
         self.step_count += 1
 
-        self.red_pos = (self.red_pos + self.MOVES[ac0]) % self.grid_size
+        
+        self.red_pos = self.red_pos.reshape(self.batch_size * self.num_agents, 2)
+        self.blue_pos = self.blue_pos.reshape(self.batch_size * self.num_agents, 2)
+        self.red_pos = (self.red_pos + self.MOVES[ac0]) % self.grid_size # (512 * n, 2)
         self.blue_pos = (self.blue_pos + self.MOVES[ac1]) % self.grid_size
 
         # Compute rewards
-        red_reward = torch.zeros(self.batch_size).to(device)
+        red_reward = torch.zeros(self.batch_size * self.num_agents).to(device)
         red_red_matches = self._same_pos(self.red_pos, self.red_coin_pos)
         red_reward[red_red_matches] += 1
         red_blue_matches = self._same_pos(self.red_pos, self.blue_coin_pos)
         red_reward[red_blue_matches] += 1
 
-        blue_reward = torch.zeros(self.batch_size).to(device)
+        blue_reward = torch.zeros(self.batch_size * self.num_agents).to(device)
         blue_red_matches = self._same_pos(self.blue_pos, self.red_coin_pos)
         blue_reward[blue_red_matches] += 1
         blue_blue_matches = self._same_pos(self.blue_pos, self.blue_coin_pos)
@@ -226,9 +236,9 @@ class CoinGameGPU_MultiPlayer:
         state = self._generate_state()
         observations = [state, state]
         if self.step_count >= self.max_steps:
-            done = torch.ones(self.batch_size).to(device)
+            done = torch.ones(self.batch_size * self.num_agents).to(device)
         else:
-            done = torch.zeros(self.batch_size).to(device)
+            done = torch.zeros(self.batch_size * self.num_agents).to(device)
 
         return observations, reward, done, (red_red_matches.sum(), red_blue_matches.sum(), blue_red_matches.sum(), blue_blue_matches.sum())
 
