@@ -29,7 +29,7 @@ parser.add_argument("--user_name", type=str, default='mfos',
                     help="[for wandb usage], to specify user's name for "
                         "simply collecting training data.")
 parser.add_argument("--use_wandb", action='store_false', default=True, 
-                    help="[for wandb usage], by default True, will log date "
+                    help="[for wandb usage], by default True, will log data "
                         "to wandb server. or else will use tensorboard to log data.")
 args = parser.parse_args()
 

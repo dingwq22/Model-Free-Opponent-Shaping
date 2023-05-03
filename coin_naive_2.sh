@@ -18,7 +18,7 @@ mkdir -p $logs_folder
 # hyperparameters 
 seed_max=1
 grid_size=(3 4 5 10)
-num_agents=2
+num_agents=1
 num_coins=2
 
 # Run the script

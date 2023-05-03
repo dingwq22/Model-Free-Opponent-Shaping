@@ -23,7 +23,7 @@ class MemoryMFOS:
 class ActorCriticMFOS(nn.Module):
     def __init__(self, input_shape, action_dim, n_out_channels, batch_size):
         super(ActorCriticMFOS, self).__init__()
-        self.batch_size = batch_size
+        self.batch_size = batch_size 
         self.n_out_channels = n_out_channels
         self.space = n_out_channels
 

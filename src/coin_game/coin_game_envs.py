@@ -202,7 +202,7 @@ class CoinGameGPU_MultiPlayer:
         state[:, 2].scatter_(1, red_coin_pos_flat[:, None], 1) # (512 * n, grid_size * grid_size)
         state[:, 3].scatter_(1, blue_coin_pos_flat[:, None], 1)
 
-        return state.view(self.batch_size * self.num_agents, 4, self.grid_size, self.grid_size)
+        return state.view(self.batch_size * self.num_agents, 4, self.grid_size, self.grid_size) #(512 * n, 4, grid_size, grid_size)
 
     def step(self, actions):
         ac0, ac1 = actions
@@ -363,7 +363,7 @@ class CoinGamePPO_MultiPlayer():
         self.grid_size = grid_size
         self.num_agents = num_agents
         self.inner_ep_len = inner_ep_len
-        self.b = batch_size
+        self.batch_size = batch_size
         self.first = first
 
     def reset(self):
@@ -385,20 +385,20 @@ class CoinGamePPO_MultiPlayer():
         self.inner_memory = Memory()
 
         self.env_states = self.env.reset()
-        self.rewards_inner = torch.zeros(self.b).to(device)
-        self.rewards_outer = torch.zeros(self.b).to(device)
-        self.dones_inner = torch.zeros(self.b).to(device)
-        self.dones_outer = torch.zeros(self.b).to(device)
+        self.rewards_inner = torch.zeros(self.batch_size * self.num_agents).to(device)
+        self.rewards_outer = torch.zeros(self.batch_size * self.num_agents).to(device)
+        self.dones_inner = torch.zeros(self.batch_size * self.num_agents).to(device)
+        self.dones_outer = torch.zeros(self.batch_size * self.num_agents).to(device)
         self.t = 0
 
         return self._prep_state()
 
     def _prep_state(self):
-        rewards_inner_tiled = torch.tile(self.rewards_inner[None, None].T, [1, 3, 3])[:, None]
-        rewards_outer_tiled = torch.tile(self.rewards_outer[None, None].T, [1, 3, 3])[:, None]
-        dones_inner_tiled = torch.tile(self.dones_inner[None, None].T, [1, 3, 3])[:, None]
+        rewards_inner_tiled = torch.tile(self.rewards_inner[None, None].T, [1, self.grid_size, self.grid_size])[:, None]
+        rewards_outer_tiled = torch.tile(self.rewards_outer[None, None].T, [1, self.grid_size, self.grid_size])[:, None]
+        dones_inner_tiled = torch.tile(self.dones_inner[None, None].T, [1, self.grid_size, self.grid_size])[:, None]
 
-        # print("env state shape", self.env_states[0].shape)
+        print("env state shape", self.env_states[0].shape)
         return torch.cat([self.env_states[0], rewards_inner_tiled, rewards_outer_tiled, dones_inner_tiled], axis=1)
 
     def step(self, actions):
@@ -407,10 +407,10 @@ class CoinGamePPO_MultiPlayer():
             info = None
             assert self.t % self.inner_ep_len == 0
             self.env_states = self.env.reset()
-            self.rewards_inner = torch.zeros(self.b).to(device)
-            self.rewards_outer = torch.zeros(self.b).to(device)
-            self.dones_inner = torch.zeros(self.b).to(device)
-            self.dones_outer = torch.zeros(self.b).to(device)
+            self.rewards_inner = torch.zeros(self.batch_size * self.num_agents).to(device)
+            self.rewards_outer = torch.zeros(self.batch_size * self.num_agents).to(device)
+            self.dones_inner = torch.zeros(self.batch_size * self.num_agents).to(device)
+            self.dones_outer = torch.zeros(self.batch_size * self.num_agents).to(device)
             self.inner_agent.update(self.inner_memory)
             self.inner_memory.clear_memory()
         else:
