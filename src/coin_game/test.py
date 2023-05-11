@@ -26,14 +26,14 @@ n = 4
 
 red_pos_flat = torch.randint(grid_size * grid_size, size=(batch_size * n,))
 print(red_pos_flat)
-red_pos_flat = red_pos_flat.reshape(batch_size, n)
+red_pos_flat = red_pos_flat.view(batch_size, n)
 
 red_pos = torch.stack((red_pos_flat // grid_size, red_pos_flat % grid_size), dim=-1)
 print(red_pos, red_pos.shape)
 
-red_pos_flat = red_pos.reshape(batch_size * n, -1)[ :, 0] * grid_size + red_pos.reshape(batch_size *n, -1)[:, 1]
+red_pos_flat = red_pos.view(batch_size * n, -1)[ :, 0] * grid_size + red_pos.view(batch_size *n, -1)[:, 1]
 print(red_pos_flat.shape)
-red_pos_flat = red_pos_flat.reshape(batch_size* n)
+red_pos_flat = red_pos_flat.view(batch_size* n)
 print(red_pos_flat)
 
 state = torch.zeros((batch_size*n, 4, grid_size * grid_size))

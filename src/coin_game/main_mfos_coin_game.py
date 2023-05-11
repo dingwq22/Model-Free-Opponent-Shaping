@@ -166,7 +166,6 @@ if __name__ == "__main__":
     for i_episode in range(1, max_episodes + 1):
         memory.clear_memory()
         state = env.reset()
-        print("state shape", state.shape)
         running_reward = 0
         opp_running_reward = 0
         p1_num_opp, p2_num_opp, p1_num_self, p2_num_self = 0, 0, 0, 0
