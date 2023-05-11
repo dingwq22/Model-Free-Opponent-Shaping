@@ -17,9 +17,9 @@ mkdir -p $logs_folder
 
 # hyperparameters 
 seed_max=1
-grid_size=(3 4 4 5 5 6)
-num_agents=(2 2 3 3 4 4)
-num_coins=(2 2 3 3 4 4)
+grid_size=(3 4 4 4 5 5 6)
+num_agents=(1 1 2 3 3 4 4)
+num_coins=(2 2 2 3 3 4 4)
 
 # Run the script
 for seed in `seq ${seed_max}`;

@@ -56,7 +56,7 @@ if __name__ == "__main__":
     use_gae = False
 
     inner_ep_len = 16
-    num_steps = 256  # , 500
+    num_steps = 32768  # , 500
 
     do_sum = False
 
