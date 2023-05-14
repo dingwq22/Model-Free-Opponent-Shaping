@@ -51,7 +51,7 @@ if __name__ == "__main__":
     use_gae = False
 
     inner_ep_len = 32
-    num_steps = 32768  # 512, 500
+    num_steps = 100000  # 512, 500
     max_episodes = num_steps // inner_ep_len  # max training episodes
     name = args.exp_name
 

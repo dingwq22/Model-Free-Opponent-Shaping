@@ -41,7 +41,7 @@ if __name__ == "__main__":
     state_dim = [7, args.grid_size, args.grid_size]
     action_dim = 4
     n_latent_var = 16  # number of variables in hidden layer
-    max_episodes = 1000  # max training episodes
+    max_episodes = 100000  # max training episodes
     log_interval = 50
 
     lr = 0.0002
@@ -56,7 +56,7 @@ if __name__ == "__main__":
     use_gae = False
 
     inner_ep_len = 16
-    num_steps = 32768  # , 500
+    num_steps = 256  # , 500
 
     do_sum = False
 
@@ -204,6 +204,8 @@ if __name__ == "__main__":
         # log training info 
         for k, v in rew_means[-1].items():
             if args.use_wandb:
+                print(rew_means[-1])
+                print(k,v)
                 wandb.log({k: v}, step=i_episode)
 
         # if i_episode % save_freq == 0:
